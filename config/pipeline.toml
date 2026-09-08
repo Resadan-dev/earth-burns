@@ -1,0 +1,48 @@
+# Earth Burns - pipeline configuration.
+# Paths are relative to the project root unless absolute.
+
+[paths]
+raw_dryad = "data/raw/dryad"
+raw_zenodo = "data/raw/zenodo_geff"
+raw_gldas = "data/raw/gldas"
+raw_gfed = "data/raw/gfed"
+interim = "data/interim"
+processed = "data/processed"
+web = "data/web"
+
+[dryad]
+# Yin, Abatzoglou, Jones et al. (2026), Science Advances 10.1126/sciadv.adx8813
+doi = "doi:10.5061/dryad.cfxpnvxkp"
+version_id = 435817
+observed_pattern = "fwi_era5_{year}.nc"
+counterfactual_pattern = "fwi_era5_counter_{year}.nc"
+first_year = 1979
+last_year = 2024
+
+[zenodo]
+# Vitolo et al. (2019) GEFF-ERA5 FWI, Zenodo record 3540938 - public test bed (1979-2018)
+record_id = 3540938
+pattern = "no_overwintering_fire_weather_index_{year}.nc"
+
+[reference]
+# Percentile thresholds are computed per cell over this period (paper: 1991-2020).
+first_year = 1991
+last_year = 2020
+quantiles = [0.90, 0.95, 0.99]
+
+[histogram]
+fine_max = 80.0
+fine_step = 0.2
+coarse_max = 300.0
+coarse_step = 1.0
+validation_cells = 3000
+seed = 42
+
+[mask]
+# GLDAS Noah "Modified IGBP" codes considered burnable wildland.
+# 1-5 forests, 6-7 shrublands, 8-9 (woody) savannas, 10 grassland,
+# 14 cropland/natural mosaic ("mixed cover"), 18-19 wooded/mixed tundra.
+burnable_classes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19]
+vote_threshold = 0.5
+domveg_file = "GLDASp5_domveg_NOAH3.6_025d.nc4"
+gfed_regions_file = "GFED4.1s_1997.hdf5"

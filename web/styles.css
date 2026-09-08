@@ -1,0 +1,757 @@
+/* Earth Burns — dark editorial instrument.
+   The map owns the frame; every control sits on it without boxing it in. */
+
+:root {
+  --ink: #0a0a0d;
+  --ink-2: #14141b;
+  --paper: #ece9e2;
+  --muted: #8d8a95;
+  --rule: rgba(236, 233, 226, 0.12);
+  --ember: #e05233;
+  --cool: #4f93d4;
+  --gap: #f2b53c;
+  --sans: ui-sans-serif, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --gutter: clamp(1.1rem, 2.6vw, 2.75rem);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--sans);
+  overflow: hidden;
+}
+
+#map {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+#map:active { cursor: grabbing; }
+
+/* ---------- masthead ---------- */
+
+.masthead {
+  position: fixed;
+  top: var(--gutter);
+  left: var(--gutter);
+  max-width: min(30ch, 42vw);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.masthead-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+/* The title itself stays click-through so it never blocks map dragging; the
+   "?" opts back in, since it is the one interactive element up here. */
+.masthead-title .about-help {
+  pointer-events: auto;
+  margin-top: 0.35rem;
+}
+
+.masthead h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.35rem);
+  font-weight: 640;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+.masthead h1 span {
+  display: block;
+  color: var(--ember);
+}
+
+.standfirst {
+  margin: 0.85rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 34ch;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+.lang-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  pointer-events: auto;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.64rem;
+  font-weight: 620;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  position: relative;
+  transition: color 160ms ease;
+}
+.lang-btn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.22rem;
+  height: 1px;
+  width: 0;
+  background: var(--ember);
+  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.lang-btn:hover { color: var(--paper); }
+.lang-btn.is-on { color: var(--paper); }
+.lang-btn.is-on::after { width: 100%; }
+.lang-btn:focus-visible { outline: 1px solid var(--ember); outline-offset: 3px; }
+
+/* ---------- mode switches ---------- */
+
+.modes {
+  position: fixed;
+  top: var(--gutter);
+  right: var(--gutter);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mode-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.42rem 0 0.42rem 1.1rem;
+  cursor: pointer;
+  position: relative;
+  transition: color 160ms ease;
+}
+.mode-btn::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0.18rem;
+  height: 1px;
+  width: 0;
+  background: var(--ember);
+  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mode-btn:hover { color: var(--paper); }
+.mode-btn.is-on { color: var(--paper); }
+.mode-btn.is-on::after { width: 100%; }
+.mode-btn:focus-visible { outline: 1px solid var(--ember); outline-offset: 3px; }
+
+/* "The human fingerprint" is the payoff the other three modes exist to
+   explain, so it gets its own larger row at the top of the nav rather than a
+   tint that only read clearly once you already knew to look for it. */
+.mode-row--featured .mode-btn {
+  font-size: 0.98rem;
+  font-weight: 640;
+  padding-top: 0.15rem;
+}
+.mode-row--featured .help-dot { margin-top: 0.12rem; }
+
+.modes-secondary-label {
+  margin: 0.85rem 0 0.3rem;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.72;
+  text-align: right;
+}
+
+.modes-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+/* Visibly the annex to "The human fingerprint" above: a step down in size
+   from the nav's own default, not just a lack of the featured row's emphasis. */
+.modes-secondary .mode-btn { font-size: 0.64rem; }
+
+/* Shared look for every "?" trigger: a small outlined dot. .mode-help is
+   conditional (only the active mode's row shows one); .about-help is the
+   general one in the masthead and stays visible all the time. */
+.help-dot {
+  appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.58rem;
+  font-weight: 640;
+  line-height: 1;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+.help-dot:hover { color: var(--paper); border-color: var(--ember); }
+.help-dot:focus-visible { outline: 1px solid var(--ember); outline-offset: 2px; }
+
+/* The per-mode "?" only exists next to the mode currently selected: it
+   follows the active row instead of cluttering the other three. */
+.mode-help { display: none; }
+.mode-help.is-on { display: inline-flex; }
+
+.about-help { display: inline-flex; }
+
+/* ---------- readout ---------- */
+
+.readout {
+  position: fixed;
+  left: var(--gutter);
+  bottom: calc(var(--gutter) + 4.2rem);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.stamp {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.24em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.stamp #year { color: var(--paper); }
+
+.figures {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(1.1rem, 3vw, 2.6rem);
+}
+
+.figure { display: flex; flex-direction: column; gap: 0.15rem; }
+
+.figure-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.figure-value {
+  font-family: var(--mono);
+  font-size: clamp(1.6rem, 3.6vw, 2.9rem);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+
+.figure[data-world="observed"] .figure-value { color: var(--ember); }
+.figure[data-world="counterfactual"] .figure-value { color: var(--cool); }
+.figure--gap .figure-value { color: var(--gap); font-size: clamp(1.1rem, 2.2vw, 1.7rem); }
+.figure--gap { align-self: center; }
+
+.caption {
+  margin: 0.6rem 0 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+/* "The numbers", "Read the study" and "Get the data" as one row: the two
+   citation links used to live only inside modals, two clicks deep, which is
+   not really credit if a visitor never finds them. Here they cost one. */
+.credits-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  pointer-events: auto;
+}
+.credits-sep { color: var(--rule); font-size: 0.62rem; }
+.credits-links { display: inline-flex; align-items: center; gap: 0.5rem; }
+.credits-links > a:not(:first-child) { margin-left: 0.5rem; }
+.credits-links > a:not(:first-child)::before {
+  content: "\00B7";
+  position: absolute;
+  margin-left: -0.95rem;
+  color: var(--rule);
+}
+
+.stats-trigger,
+.credit-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.62rem;
+  font-weight: 620;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  position: relative;
+}
+.stats-trigger::after,
+.credit-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.2rem;
+  height: 1px;
+  width: 0;
+  background: var(--ember);
+  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.stats-trigger:hover, .credit-link:hover { color: var(--paper); }
+.stats-trigger:hover::after, .credit-link:hover::after { width: 100%; }
+.credit-link:focus-visible { outline: 1px solid var(--ember); outline-offset: 3px; }
+.stats-trigger:focus-visible { outline: 1px solid var(--ember); outline-offset: 3px; }
+
+/* ---------- transport ---------- */
+
+.transport {
+  position: fixed;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: var(--gutter);
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--rule);
+}
+
+.play {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--paper);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.play svg { width: 0.72rem; height: 0.72rem; fill: currentColor; }
+.play:hover { border-color: var(--ember); background: rgba(224, 82, 51, 0.12); }
+.play:focus-visible { outline: 1px solid var(--ember); outline-offset: 3px; }
+
+.scrub { position: relative; }
+
+.scrub input[type="range"] {
+  appearance: none;
+  width: 100%;
+  height: 1.5rem;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  display: block;
+}
+.scrub input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--rule);
+}
+.scrub input[type="range"]::-moz-range-track { height: 2px; background: var(--rule); }
+.scrub input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 3px;
+  height: 1.15rem;
+  margin-top: -0.53rem;
+  background: var(--ember);
+  border: 0;
+  border-radius: 0;
+}
+.scrub input[type="range"]::-moz-range-thumb {
+  width: 3px; height: 1.15rem; background: var(--ember); border: 0; border-radius: 0;
+}
+.scrub input[type="range"]:focus-visible { outline: 1px solid var(--ember); outline-offset: 2px; }
+
+.ticks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1.45rem;
+  height: 0.85rem;
+  pointer-events: none;
+}
+.ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.ticks span::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -0.42rem;
+  width: 1px;
+  height: 0.28rem;
+  background: var(--rule);
+}
+
+.legend { display: flex; align-items: center; gap: 0.55rem; }
+.legend-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.legend-bar {
+  width: clamp(4rem, 9vw, 8rem);
+  height: 4px;
+  background: linear-gradient(90deg, #252430, #5c1219, #c72910, #f87b0f, #ffd45a, #fffaea);
+}
+.legend.is-diverging .legend-bar {
+  background: linear-gradient(90deg, #4f93d4, #1b3350, #252430, #6d1d12, #ef4023, #ffe28c);
+}
+
+/* ---------- loading a decade ---------- */
+
+.loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  padding: 0.5rem 0.95rem;
+  background: rgba(10, 10, 13, 0.82);
+  border: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ---------- twin view ---------- */
+
+.twin-labels { display: none; }
+body.is-twin .twin-labels { display: block; }
+
+.twin-label {
+  position: fixed;
+  right: var(--gutter);
+  z-index: 3;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.twin-label--top { top: calc(50% - 1.9rem); color: var(--ember); }
+.twin-label--bottom { bottom: calc(var(--gutter) + 5.6rem); color: var(--cool); }
+
+body.is-twin .standfirst { display: none; }
+body.is-twin .caption { display: none; }
+body.is-twin .figure-value { font-size: clamp(1.25rem, 2.4vw, 1.9rem); }
+body.is-twin .figures { gap: clamp(0.9rem, 2vw, 1.7rem); }
+
+body.is-twin::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--rule);
+  z-index: 2;
+}
+
+/* ---------- help modal ---------- */
+
+/* A native <dialog>: Escape and focus-trapping come for free. It is sized to
+   the full viewport so a click landing on its own box (outside .help-card)
+   counts as "outside" and light-dismisses it; ::backdrop carries the tint. */
+dialog.help-modal {
+  display: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100vw;
+  max-height: 100vh;
+  border: 0;
+  background: transparent;
+}
+dialog.help-modal[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+dialog.help-modal::backdrop {
+  background: rgba(6, 6, 9, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.help-card {
+  position: relative;
+  max-width: min(28rem, 86vw);
+  padding: 1.6rem 1.9rem;
+  background: rgba(20, 20, 27, 0.74);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--ember);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.help-card h2 {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 640;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--paper);
+}
+
+.help-card p {
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: var(--paper);
+  opacity: 0.88;
+}
+
+/* The general "about" card holds several short facts instead of one
+   paragraph, so it gets a little more room and a definition-list layout. */
+.about-card {
+  max-width: min(30rem, 88vw);
+  max-height: 84vh;
+  overflow-y: auto;
+  /* Firefox: a thin, dark thumb instead of the OS default. Chrome/Safari/Edge
+     read the ::-webkit-scrollbar rules below instead of this shorthand. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+.about-card::-webkit-scrollbar { width: 8px; }
+.about-card::-webkit-scrollbar-track { background: transparent; }
+.about-card::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.about-card::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+.about-card::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+/* Wider than .about-card: a two-column grid of big numbers needs the room a
+   single column of prose does not. Same thin scrollbar treatment. */
+.stats-card {
+  max-width: min(34rem, 92vw);
+  max-height: 84vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+.stats-card::-webkit-scrollbar { width: 8px; }
+.stats-card::-webkit-scrollbar-track { background: transparent; }
+.stats-card::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.stats-card::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+.stats-card::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+.stats-note {
+  margin: 0 0 1.1rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.3rem 1.5rem;
+}
+.stat-item { display: flex; flex-direction: column; gap: 0.2rem; }
+.stat-value {
+  font-family: var(--mono);
+  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+  font-weight: 640;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ember);
+}
+.stat-caption {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--paper);
+  opacity: 0.85;
+}
+/* An odd count leaves one card alone on its row: let it stretch, rather than
+   sit stranded at one column's width next to empty space. */
+.stats-grid > .stat-item:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid > .stat-item:last-child:nth-child(odd) { grid-column: auto; }
+}
+
+.about-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.about-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.about-facts dt {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 640;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ember);
+}
+.about-facts dd {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--paper);
+  opacity: 0.88;
+}
+
+/* Credit for the underlying research: a visible, clickable pair of links
+   rather than a citation buried in prose. */
+.about-links {
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.3rem;
+}
+.about-link {
+  font-size: 0.72rem;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+  opacity: 0.85;
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  transition: opacity 160ms ease, border-color 160ms ease;
+}
+.about-link:hover { opacity: 1; border-color: var(--ember); }
+.about-link:focus-visible { outline: 1px solid var(--ember); outline-offset: 3px; }
+
+.help-close {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.65rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.help-close:hover { color: var(--paper); }
+.help-close:focus-visible { outline: 1px solid var(--ember); outline-offset: 2px; }
+
+/* ---------- boot and errors ---------- */
+
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  transition: opacity 500ms ease;
+}
+.boot.is-done { opacity: 0; pointer-events: none; }
+.boot-text {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+  animation: pulse 1.9s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+.error {
+  position: fixed;
+  inset: auto var(--gutter) var(--gutter) var(--gutter);
+  z-index: 7;
+  padding: 0.9rem 1.1rem;
+  background: var(--ink-2);
+  border-left: 2px solid var(--ember);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--paper);
+}
+
+@media (max-width: 720px) {
+  .masthead { max-width: 62vw; }
+  .standfirst { display: none; }
+  .transport { grid-template-columns: auto 1fr; }
+  .legend { display: none; }
+  /* The map is 2.055:1, so on a tall screen it occupies a band across the middle.
+     The readout sits directly under that band instead of at the very bottom, which
+     would leave a hole the height of a phone between the two. */
+  .readout { top: 62%; bottom: auto; }
+  .modes { flex-direction: column; align-items: flex-end; max-width: 60vw; }
+  .mode-btn { padding-left: 0; }
+  .mode-row--featured .mode-btn { font-size: 0.82rem; }
+  .modes-secondary { flex-direction: row; flex-wrap: wrap; gap: 0 0.8rem; justify-content: flex-end; }
+}
+
+@media (max-width: 720px) and (orientation: landscape) {
+  .readout { top: auto; bottom: calc(var(--gutter) + 4.6rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-text { animation: none; opacity: 0.7; }
+  * { transition-duration: 1ms !important; }
+}

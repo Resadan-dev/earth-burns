@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earth Burns</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="map" aria-label="World map of extreme fire weather"></canvas>
+
+<div id="loading" class="loading" hidden>Loading this decade</div>
+
+<div class="twin-labels" aria-hidden="true">
+  <span class="twin-label twin-label--top" id="twin-top">Our world</span>
+  <span class="twin-label twin-label--bottom" id="twin-bottom">Without human-caused warming</span>
+</div>
+
+<div id="boot" class="boot"><span class="boot-text" id="boot-text">Loading 46 years of fire weather</span></div>
+
+<header class="masthead">
+  <div class="masthead-title">
+    <h1>Earth<span>Burns</span></h1>
+    <button class="help-dot about-help" id="about-help" aria-label="What is this?">?</button>
+  </div>
+  <p class="standfirst" id="standfirst">
+    Days above the local 90th percentile of the Fire Weather Index, 1979&ndash;2024.
+    Two planets: the one we have, and the one without human-caused warming.
+  </p>
+  <div class="lang-switch" role="group" aria-label="Language">
+    <button class="lang-btn is-on" data-lang="en" type="button">EN</button>
+    <button class="lang-btn" data-lang="fr" type="button">FR</button>
+  </div>
+</header>
+
+<nav class="modes" aria-label="View">
+  <div class="mode-row mode-row--featured">
+    <button class="mode-btn is-on" data-mode="2">The difference</button>
+    <button class="help-dot mode-help is-on" data-mode="2" aria-label="What does &ldquo;The difference&rdquo; show?">?</button>
+  </div>
+  <p class="modes-secondary-label" id="modes-secondary-label">The building blocks</p>
+  <div class="modes-secondary">
+    <div class="mode-row">
+      <button class="mode-btn" data-mode="0">Our world</button>
+      <button class="help-dot mode-help" data-mode="0" aria-label="What does &ldquo;Our world&rdquo; show?">?</button>
+    </div>
+    <div class="mode-row">
+      <button class="mode-btn" data-mode="1">Without warming</button>
+      <button class="help-dot mode-help" data-mode="1" aria-label="What does &ldquo;Without warming&rdquo; show?">?</button>
+    </div>
+    <div class="mode-row">
+      <button class="mode-btn" data-mode="3">Side by side</button>
+      <button class="help-dot mode-help" data-mode="3" aria-label="What does &ldquo;Side by side&rdquo; show?">?</button>
+    </div>
+  </div>
+</nav>
+
+<section class="readout" aria-live="polite">
+  <div class="stamp"><span id="month">JAN</span> <span id="year">1979</span></div>
+  <div class="figures">
+    <div class="figure" data-world="observed">
+      <span class="figure-label" id="fl-obs">Our world</span>
+      <span class="figure-value" id="v-obs">&mdash;</span>
+    </div>
+    <div class="figure" data-world="counterfactual">
+      <span class="figure-label" id="fl-cf">Without warming</span>
+      <span class="figure-value" id="v-cf">&mdash;</span>
+    </div>
+    <div class="figure figure--gap">
+      <span class="figure-label" id="fl-gap">Gap</span>
+      <span class="figure-value" id="v-gap">&mdash;</span>
+    </div>
+  </div>
+  <p class="caption" id="caption">Share of burnable land in extreme fire weather</p>
+  <div class="credits-row" id="credits-row">
+    <button class="stats-trigger" id="stats-help" type="button">The numbers</button>
+    <span class="credits-sep" aria-hidden="true">&middot;</span>
+    <span class="credits-links" id="credits-links"></span>
+  </div>
+</section>
+
+<footer class="transport">
+  <button id="play" class="play" aria-label="Play or pause">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path id="play-icon" d="M4 2 L13 8 L4 14 Z"/></svg>
+  </button>
+  <div class="scrub">
+    <input id="time" type="range" min="0" max="551" step="0.01" value="0"
+           aria-label="Month in the record">
+    <div class="ticks" id="ticks" aria-hidden="true"></div>
+  </div>
+  <div class="legend" id="legend"><span class="legend-label">calm</span>
+    <span class="legend-bar"></span><span class="legend-label">every day extreme</span></div>
+</footer>
+
+<div class="error" id="error" hidden></div>
+
+<dialog id="help-modal" class="help-modal" aria-labelledby="help-title" aria-describedby="help-body">
+  <div class="help-card">
+    <button class="help-close" id="help-close" aria-label="Close">&times;</button>
+    <h2 id="help-title"></h2>
+    <p id="help-body"></p>
+  </div>
+</dialog>
+
+<dialog id="about-modal" class="help-modal" aria-labelledby="about-title">
+  <div class="help-card about-card">
+    <button class="help-close" id="about-close" aria-label="Close">&times;</button>
+    <h2 id="about-title"></h2>
+    <dl class="about-facts" id="about-facts"></dl>
+    <div class="about-links" id="about-links"></div>
+  </div>
+</dialog>
+
+<dialog id="stats-modal" class="help-modal" aria-labelledby="stats-title">
+  <div class="help-card stats-card">
+    <button class="help-close" id="stats-close" aria-label="Close">&times;</button>
+    <h2 id="stats-title"></h2>
+    <p class="stats-note" id="stats-note"></p>
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="about-links" id="stats-links"></div>
+  </div>
+</dialog>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

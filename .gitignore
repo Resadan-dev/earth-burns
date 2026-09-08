@@ -1,0 +1,23 @@
+# Data is never versioned, except the authors' own code shipped with the dataset.
+# git does not descend into an excluded directory, so each level has to be
+# re-included in turn for the final negation to have any effect at all.
+/data/*
+!/data/raw/
+/data/raw/*
+!/data/raw/dryad/
+/data/raw/dryad/*
+!/data/raw/dryad/code/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+dist/
+
+# editors
+.vscode/
+.idea/
