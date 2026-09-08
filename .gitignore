@@ -18,6 +18,9 @@ htmlcov/
 .coverage
 dist/
 
+# cloudflare
+.wrangler/
+
 # editors
 .vscode/
 .idea/

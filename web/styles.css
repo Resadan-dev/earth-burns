@@ -231,7 +231,7 @@ html, body {
 .readout {
   position: fixed;
   left: var(--gutter);
-  bottom: calc(var(--gutter) + 4.2rem);
+  bottom: calc(var(--gutter) + 2.8rem);
   z-index: 3;
   pointer-events: none;
 }
@@ -283,13 +283,20 @@ html, body {
 
 /* "The numbers", "Read the study" and "Get the data" as one row: the two
    citation links used to live only inside modals, two clicks deep, which is
-   not really credit if a visitor never finds them. Here they cost one. */
+   not really credit if a visitor never finds them. Here they cost one.
+   Its own fixed block on the right, not the last line of .readout: buried
+   under the stamp and the two big figures it read as a footnote nobody
+   reached. Mirroring the nav's right edge gives it a corner of its own. */
 .credits-row {
+  position: fixed;
+  right: var(--gutter);
+  bottom: calc(var(--gutter) + 4.2rem);
+  z-index: 3;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
-  margin-top: 0.5rem;
   pointer-events: auto;
 }
 .credits-sep { color: var(--rule); font-size: 0.62rem; }

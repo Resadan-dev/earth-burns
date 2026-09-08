@@ -249,3 +249,15 @@ variabilité naturelle. → Corps du texte modifié en anglais et en français p
 explicitement « the world without human-caused warming » / « le monde sans réchauffement
 d'origine humaine », cohérent avec `twin.bottom` et `aboutHelp.facts` qui le disaient déjà
 correctement. La modale était donc le seul endroit encore ambigu.
+
+## D36 — Le crédit change de coin (2026-09-08)
+« The numbers » / « Read the study » / « Get the data » vivaient en dernière ligne de
+`.readout`, sous le mois, les deux pourcentages et la légende : la ligne la plus petite et
+la moins contrastée de la page, sixième élément d'une colonne déjà dense. Un visiteur les a
+trouvés peu visibles. → Sortis de `.readout` vers leur propre bloc fixe, ancré à droite en
+miroir de la nav, aligné à droite (`justify-content: flex-end`), à la même hauteur que
+l'ancienne ligne de crédit. `.readout` perd sa dernière ligne et remonte son offset bas de
+4,2rem à 2,8rem pour garder l'écart original au-dessus du bandeau de lecture. Résultat :
+quatre coins distincts (titre, nav, lecture, crédit) autour de la carte plutôt qu'une
+colonne gauche à six niveaux. Vérifié en desktop et aux deux points de rupture mobiles
+existants (portrait à `top:62%`, paysage à `bottom` fixe) : aucun chevauchement.
