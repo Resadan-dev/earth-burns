@@ -1,87 +1,86 @@
-# 05 : Empaquetage pour le navigateur
+# 05: Packing for the browser
 
 ## Budget
 
-Le client doit animer 552 mois × 2 mondes × (au moins) un seuil. Trois décisions ramènent
-le volume dans un budget raisonnable :
+The client has to animate 552 months x 2 worlds x (at least) one threshold. Three
+decisions bring the volume down to a reasonable budget:
 
-1. **Ne stocker que les cellules brûlables** : 185 301 sur 1 038 240, soit 18 % de la
-   grille. Le reste est noir de toute façon.
-2. **Un octet par cellule et par mois** (nombre de jours extrêmes, 0–31).
-3. **Brotli** sur des données très creuses (la plupart des mois valent 0 presque partout).
+1. **Store only burnable cells**: 185,301 out of 1,038,240, or 18% of the grid. The rest
+   is black anyway.
+2. **One byte per cell per month** (number of extreme days, 0-31).
+3. **Brotli** on very sparse data (most months are 0 almost everywhere).
 
-Ordre de grandeur brut : 552 × 185 301 ≈ 102 Mo par monde et par seuil. Mesuré sur le banc
-d'essai (12 mois × 3 seuils + index des cellules + série d'étendue) : **1,1 Mo**, soit
-~22 Ko par mois et par seuil, donc 10 à 15 Mo par seuil pour 46 ans et **60 à 80 Mo** pour
-les deux mondes et les trois seuils, chargés décennie par décennie. À confirmer sur Dryad.
+Rough order of magnitude: 552 x 185,301 ≈ 102 MB per world and per threshold. Measured on
+the test bench (12 months x 3 thresholds + cell index + extent series): **1.1 MB**, or
+~22 KB per month and per threshold, so 10 to 15 MB per threshold for 46 years, and
+**60 to 80 MB** for both worlds and all three thresholds, loaded decade by decade. To be
+confirmed on Dryad.
 
-## Disposition des fichiers (`data/web/`)
+## File layout (`data/web/`)
 
 ```
 <source>/grid.json                        nlat, nlon, lat0, lon0, step, n_cells
-<source>/cells.bin.br                     int32 × n_cells : index des cellules brûlables
-<source>/<monde>/<seuil>/<y0>-<y1>.bin.br uint8 × (n_mois × n_cells), une décennie par blob
-<source>/extent/<monde>.bin.br            uint16 × (n_jours × n_seuils × 30)
-<source>/manifest.json                    tout ce que le client doit savoir pour décoder
+<source>/cells.bin.br                     int32 x n_cells: index of burnable cells
+<source>/<world>/<threshold>/<y0>-<y1>.bin.br uint8 x (n_months x n_cells), one decade per blob
+<source>/extent/<world>.bin.br            uint16 x (n_days x n_thresholds x 30)
+<source>/manifest.json                    everything the client needs to decode
 ```
 
-Le paquet est rangé **par source** : mélanger un blob du banc d'essai et un blob Dryad sous
-un même manifeste produisait un jeu incohérent étiqueté d'une seule source.
+The package is organized **by source**: mixing a test-bench blob and a Dryad blob under
+one manifest used to produce an inconsistent set labeled with a single source.
 
-Chaque blob de frames est **frame-major** : les `n_cells` octets du mois 0, puis ceux du
-mois 1, etc. Le client peut ainsi copier une tranche contiguë dans une texture sans
-réarrangement. Le découpage par décennie permet de ne charger que ce qui est affiché et de
-libérer la mémoire GPU derrière soi ; la taille du chunk est un paramètre
-(`--chunk-years`).
+Every frame blob is **frame-major**: the `n_cells` bytes of month 0, then those of month
+1, and so on. The client can therefore copy a contiguous slice into a texture with no
+rearranging. Splitting by decade means only what's shown gets loaded, and GPU memory can
+be freed behind the playhead; the chunk size is a parameter (`--chunk-years`).
 
-## Reconstruction côté client
+## Client-side reconstruction
 
 ```js
 const cells = new Int32Array(await brotliDecode("cells.bin.br"));   // n_cells
 const blob  = new Uint8Array(await brotliDecode("observed/p90/1979-1988.bin.br"));
-const month = 6;                                                     // 7e mois du blob
+const month = 6;                                                     // 7th month of the blob
 const frame = blob.subarray(month * cells.length, (month + 1) * cells.length);
-// frame[i] = jours extrêmes de la cellule cells[i] ; ligne = cells[i] / 1440, colonne = cells[i] % 1440
+// frame[i] = extreme days for cell cells[i]; row = cells[i] / 1440, column = cells[i] % 1440
 ```
 
-Les navigateurs décompressent brotli nativement quand le serveur envoie
-`Content-Encoding: br`. Servir les blobs déjà compressés avec cet en-tête évite toute
-bibliothèque de décompression côté client.
+Browsers decompress brotli natively when the server sends `Content-Encoding: br`. Serving
+the already-compressed blobs with that header avoids any decompression library on the
+client.
 
-## Séries d'étendue
+## Extent series
 
-`extent/<monde>.bin.br` contient, pour chaque jour depuis le premier jour couvert,
-`n_seuils × 30` valeurs `uint16` multipliées par 10 000 (précision 0,01 point) : la fraction
-globale, la couverture globale, puis pour chacune des 14 régions GFED sa fraction et sa
-couverture. Les métadonnées du manifeste donnent l'ordre exact des colonnes, celui des
-seuils, la première et la dernière date. Seule une région sans surface brûlable est codée 0.
+`extent/<world>.bin.br` holds, for every day since the first covered day,
+`n_thresholds x 30` `uint16` values scaled by 10,000 (0.01-point precision): the global
+fraction, global coverage, then for each of the 14 GFED regions its fraction and its
+coverage. The manifest's metadata gives the exact column order, the threshold order, and
+the first and last date. Only a region with no burnable land is coded 0.
 
-## Ce que l'empaquetage refuse de faire
+## What packing refuses to do
 
-La disposition est **positionnelle** : le client déduit le mois d'un index et la date du
-premier jour plus un décalage. Trois situations la rendraient silencieusement fausse, et
-chacune lève désormais une erreur au lieu d'être absorbée :
+The layout is **positional**: the client derives a month from an index and a date from the
+first day plus an offset. Three situations would silently make that wrong, and each now
+raises an error instead of being absorbed:
 
-- une **année manquante** entre la première et la dernière (`pack_monthly`) ;
-- un **jour manquant** dans la série d'étendue, ou un seuil ayant moins de lignes que de
-  jours (`pack_extent`) ;
-- un **index de cellules différent** de celui contre lequel des blobs ont déjà été écrits
-  (`write_grid`), à moins de passer `--force` en acceptant de tout réempaqueter.
+- a **missing year** between the first and the last (`pack_monthly`);
+- a **missing day** in the extent series, or a threshold with fewer rows than days
+  (`pack_extent`);
+- a **different cell index** than the one blobs have already been written against
+  (`write_grid`), unless `--force` is passed, accepting a full repack.
 
-Auparavant les deux premières produisaient une série décalée d'un jour ou des zéros
-indiscernables d'un vrai calme, et la troisième laissait des cartes s'afficher sur les
-mauvaises cellules.
+Previously, the first two used to produce a series shifted by one day, or zeros
+indistinguishable from real calm, and the third let maps render on the wrong cells.
 
-## Ce que le manifeste garantit
+## What the manifest guarantees
 
-- `worlds.<monde>.years` : première et dernière année disponibles ;
-- `worlds.<monde>.thresholds.<seuil>` : liste ordonnée des blobs avec `first_year` et
-  `n_months`, donc l'index absolu de chaque mois se calcule sans ouvrir le blob ;
-- `worlds.<monde>.extent` : forme, échelle, colonnes, dates ;
-- `region_names` : libellés GFED pour l'interface.
+- `worlds.<world>.years`: first and last available year;
+- `worlds.<world>.thresholds.<threshold>`: ordered list of blobs with `first_year` and
+  `n_months`, so the absolute index of any month can be computed without opening the blob;
+- `worlds.<world>.extent`: shape, scale, columns, dates;
+- `region_names`: GFED labels for the interface.
 
 ## Sources
 
-- Format brotli : RFC 7932 (<https://www.rfc-editor.org/rfc/rfc7932>).
-- Encodage de contenu `br` dans les navigateurs : MDN, *Content-Encoding*
+- Brotli format: RFC 7932 (<https://www.rfc-editor.org/rfc/rfc7932>).
+- `br` content encoding in browsers: MDN, *Content-Encoding*
   (<https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Encoding>).

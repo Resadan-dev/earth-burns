@@ -1,90 +1,88 @@
-# 00 : Vue d'ensemble du pipeline
+# 00: Pipeline overview
 
-> Objectif : produire, à partir de ~10 Go de NetCDF quotidiens, quelques dizaines de Mo
-> que le navigateur peut animer, sans trahir la science derrière.
+> Goal: turn ~10 GB of daily NetCDF into a few dozen MB the browser can animate,
+> without betraying the science behind it.
 
-## Ce que l'on visualise
+## What we're visualizing
 
-Pas « le nombre d'incendies », mais **la météo propice aux incendies** : le *Fire Weather
-Index* (FWI) du système canadien, calculé chaque jour sur une grille mondiale de 0,25°
-(~28 km à l'équateur) à partir de la température maximale, de l'humidité minimale, du vent
-et des précipitations de la réanalyse ERA5. Deux mondes sont comparés :
+Not "the number of fires," but **fire weather itself**: the Canadian system's *Fire
+Weather Index* (FWI), computed daily on a 0.25° global grid (~28 km at the equator) from
+ERA5 reanalysis maximum temperature, minimum humidity, wind and precipitation. Two worlds
+are compared:
 
-| Monde | Contenu | Source |
+| World | Content | Source |
 |---|---|---|
-| **observé** | FWI recalculé sur ERA5 | Yin et al. 2026, fichiers `fwi_era5_YYYY.nc` |
-| **contrefactuel** | même chose après retrait du signal de réchauffement anthropique (moyenne de 20 modèles CMIP6, référence 1850–1900, lissé sur 20 ans) | fichiers `fwi_era5_counter_YYYY.nc` |
+| **observed** | FWI recomputed on ERA5 | Yin et al. 2026, `fwi_era5_YYYY.nc` files |
+| **counterfactual** | the same, with the human-caused warming signal removed (mean of 20 CMIP6 models, 1850-1900 reference, smoothed over 20 years) | `fwi_era5_counter_YYYY.nc` files |
 
-Un jour est « extrême » dans une cellule quand son FWI dépasse le **90ᵉ percentile local
-calculé sur 1991–2020** (définition de l'article). Le même seuil est appliqué aux deux
-mondes : c'est ce qui rend la comparaison lisible. Nous calculons aussi p95 et p99 pour les
-paliers visuels.
+A day is "extreme" in a cell when its FWI exceeds the **local 90th percentile computed
+over 1991-2020** (the paper's definition). The same threshold is applied to both worlds:
+that's what makes the comparison legible. We also compute p95 and p99 for visual tiers.
 
-## Les deux passes
+## The two passes
 
-Le volume interdit de tout charger en mémoire : 46 ans × 365 jours × 1 038 240 cellules
-≈ 17 milliards de valeurs par monde. Le pipeline lit donc chaque fichier **une fois par
-passe**, jour après jour, sans jamais matérialiser plus de 32 jours à la fois.
+The volume rules out loading everything into memory: 46 years x 365 days x 1,038,240
+cells is about 17 billion values per world. The pipeline therefore reads each file
+**once per pass**, day by day, never materializing more than 32 days at a time.
 
 ```mermaid
 flowchart LR
-  A[Dryad<br/>92 NetCDF, 9,9 Go] -->|passe 1<br/>années 1991–2020, monde observé| H[Histogramme par cellule<br/>~1,3 Go en RAM]
-  H --> T[Seuils p90 / p95 / p99<br/>thresholds_*.nc]
-  G[GLDAS domveg<br/>+ GFED régions] --> M[Masques<br/>masks.nc]
-  A -->|passe 2<br/>chaque année, chaque monde| C[Comptage mensuel<br/>jours > seuil, uint8]
+  A[Dryad<br/>92 NetCDF, 9.9 GB] -->|pass 1<br/>1991-2020, observed world| H[Per-cell histogram<br/>~1.3 GB in RAM]
+  H --> T[p90 / p95 / p99 thresholds<br/>thresholds_*.nc]
+  G[GLDAS domveg<br/>+ GFED regions] --> M[Masks<br/>masks.nc]
+  A -->|pass 2<br/>each year, each world| C[Monthly count<br/>days > threshold, uint8]
   T --> C
   M --> C
-  C --> P[Empaquetage web<br/>brotli, cellules brûlables]
-  C --> E[Séries quotidiennes<br/>% surface brûlable en extrême]
+  C --> P[Web packing<br/>brotli, burnable cells]
+  C --> E[Daily series<br/>% burnable area in extreme]
 ```
 
-1. **Passe 1 : seuils** (`earthburns thresholds`) : un histogramme à classes fixes par
-   cellule, alimenté jour après jour, dont on déduit les percentiles avec une erreur bornée
-   par la largeur des classes. Détail : [03-thresholds.md](03-thresholds.md).
-2. **Masques** (`earthburns mask`) : quelles cellules sont « brûlables » (forêts, savanes,
-   arbustes, prairies…) et à quelle région GFED elles appartiennent.
-   Détail : [02-grid-and-masks.md](02-grid-and-masks.md).
-3. **Passe 2 : comptage** (`earthburns monthly`) : pour chaque mois, chaque cellule et
-   chaque seuil, le nombre de jours au-dessus du seuil (un octet), plus, pour chaque jour,
-   la fraction de surface brûlable en météo extrême, globale et par région.
-   Détail : [04-monthly-and-extent.md](04-monthly-and-extent.md).
-4. **Empaquetage** (`earthburns pack`) : uniquement les cellules brûlables, images
-   mensuelles, compressées en brotli par décennie. Détail : [05-web-packing.md](05-web-packing.md).
+1. **Pass 1: thresholds** (`earthburns thresholds`): a fixed-bin histogram per cell, fed
+   day after day, from which percentiles are derived with an error bounded by bin width.
+   Detail: [03-thresholds.md](03-thresholds.md).
+2. **Masks** (`earthburns mask`): which cells are "burnable" (forests, savannas,
+   shrublands, grasslands...) and which GFED region they belong to.
+   Detail: [02-grid-and-masks.md](02-grid-and-masks.md).
+3. **Pass 2: counting** (`earthburns monthly`): for each month, each cell and each
+   threshold, the number of days above the threshold (one byte), plus, for each day, the
+   fraction of burnable land in extreme fire weather, globally and by region.
+   Detail: [04-monthly-and-extent.md](04-monthly-and-extent.md).
+4. **Packing** (`earthburns pack`): burnable cells only, monthly frames, brotli-compressed
+   by decade. Detail: [05-web-packing.md](05-web-packing.md).
 
-## Arborescence
+## Layout
 
 ```
-config/pipeline.toml      paramètres (chemins, années, quantiles, classes brûlables)
-earthburns/               le paquet Python
-  grid.py                 grille canonique 721×1440, poids cos(lat), réorientation
-  fwi_io.py               lecture paresseuse des NetCDF, itération par jour
-  histogram.py            histogramme en flux + percentiles
-  thresholds.py           passe 1 (orchestration + validation)
-  mask.py / build_mask.py masque brûlable + régions GFED
-  monthly.py / monthly_run.py  passe 2
-  extent.py               fractions de surface pondérées
-  pack.py                 encodage web
-  dryad.py / cli_dryad.py client Dryad (manifeste, reprise, SHA-256)
-  cli.py                  commandes
-tests/                    57 tests unitaires et d'intégration (pytest)
-data/                     jamais versionné : raw/ → interim/ → processed/ → web/
+config/pipeline.toml      settings (paths, years, quantiles, burnable classes)
+earthburns/               the Python package
+  grid.py                 canonical 721x1440 grid, cos(lat) weights, reorientation
+  fwi_io.py               lazy NetCDF reading, day-by-day iteration
+  histogram.py            streaming histogram + percentiles
+  thresholds.py           pass 1 (orchestration + validation)
+  mask.py / build_mask.py burnable mask + GFED regions
+  monthly.py / monthly_run.py  pass 2
+  extent.py               weighted area fractions
+  pack.py                 web encoding
+  dryad.py / cli_dryad.py Dryad client (manifest, resume, SHA-256)
+  cli.py                  commands
+tests/                    57 unit and integration tests (pytest)
+data/                     never versioned: raw/ -> interim/ -> processed/ -> web/
 ```
 
-## Choix qui structurent tout le reste
+## Choices that shape everything else
 
-- **Grille canonique** : latitude de +90 à −90, longitude de −180 à +179,75. Tout tableau
-  produit par le pipeline a cette orientation, ce qui permet d'aligner masques, seuils et
-  journées cellule à cellule sans réindexation.
-- **Immutabilité sauf accumulateurs** : les fonctions renvoient de nouveaux tableaux ;
-  seuls l'histogramme et le compteur mensuel se mettent à jour en place, parce que c'est ce
-  qui permet de tenir en mémoire.
-- **Échec rapide** : fichier manquant, grille inattendue, année incomplète, somme de
-  contrôle fausse → exception, jamais de valeur par défaut silencieuse.
+- **Canonical grid**: latitude from +90 to -90, longitude from -180 to +179.75. Every
+  array the pipeline produces has this orientation, which lets masks, thresholds and
+  daily counts line up cell by cell with no reindexing.
+- **Immutable except accumulators**: functions return new arrays; only the histogram and
+  the monthly counter update in place, because that's what keeps them within memory.
+- **Fail fast**: a missing file, an unexpected grid, an incomplete year, a wrong
+  checksum → an exception, never a silent default value.
 
-## Sources principales
+## Main sources
 
 - Yin C., Abatzoglou J. T., Jones M. W. et al., *Increasing synchronicity of global extreme
-  fire weather*, Science Advances, 18 février 2026, doi:[10.1126/sciadv.adx8813](https://doi.org/10.1126/sciadv.adx8813).
-- Dataset associé : Dryad doi:[10.5061/dryad.cfxpnvxkp](https://doi.org/10.5061/dryad.cfxpnvxkp) (CC0).
+  fire weather*, Science Advances, February 18, 2026, doi:[10.1126/sciadv.adx8813](https://doi.org/10.1126/sciadv.adx8813).
+- Associated dataset: Dryad doi:[10.5061/dryad.cfxpnvxkp](https://doi.org/10.5061/dryad.cfxpnvxkp) (CC0).
 - Van Wagner C. E., *Development and structure of the Canadian Forest Fire Weather Index
-  System*, Forestry Technical Report 35, 1987 (la définition du FWI).
+  System*, Forestry Technical Report 35, 1987 (the FWI definition).

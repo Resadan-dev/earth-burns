@@ -1,89 +1,88 @@
-# 02 : Grille, poids de surface et masques
+# 02: Grid, area weights and masks
 
-## La grille canonique
+## The canonical grid
 
-ERA5 est une grille **à nœuds** : les valeurs sont définies aux latitudes 90, 89,75, …,
-−90 (721 lignes) et aux longitudes 0, 0,25, …, 359,75 (1440 colonnes). Le pipeline impose
-une orientation unique, dite canonique : latitude décroissante de +90 à −90, longitude
-croissante de −180 à +179,75. `grid.to_canonical` renomme les dimensions (insensible à la
-casse, `Latitude` comme `lat`), retourne l'axe des latitudes si besoin, recale les
-longitudes 0–360 en −180–180 et **refuse** toute grille qui ne correspond pas. Ces
-opérations sont de simples permutations d'index : xarray les applique paresseusement,
-sans charger le fichier.
+ERA5 is a **node** grid: values are defined at latitudes 90, 89.75, ..., -90 (721 rows)
+and longitudes 0, 0.25, ..., 359.75 (1440 columns). The pipeline enforces a single
+orientation, called canonical: latitude decreasing from +90 to -90, longitude increasing
+from -180 to +179.75. `grid.to_canonical` renames dimensions (case-insensitive, `Latitude`
+same as `lat`), flips the latitude axis if needed, remaps 0-360 longitudes to -180-180,
+and **refuses** any grid that doesn't match. These operations are plain index
+permutations: xarray applies them lazily, without loading the file.
 
-## Pondérer par la surface
+## Weighting by area
 
-Sur une grille régulière en degrés, une cellule à 60° de latitude couvre deux fois moins de
-surface qu'à l'équateur. Toute statistique « fraction de surface » utilise donc le poids
-cos(latitude), calculé une fois (`grid.cos_lat_weights`) et stocké dans `masks.nc` sous
-`cell_weight`. Sans cette pondération, la Sibérie et le Canada pèseraient trop lourd dans
-le compteur de simultanéité.
+On a grid regular in degrees, a cell at 60° latitude covers half the area of one at the
+equator. Every "fraction of area" statistic therefore uses the cos(latitude) weight,
+computed once (`grid.cos_lat_weights`) and stored in `masks.nc` as `cell_weight`. Without
+this weighting, Siberia and Canada would carry too much weight in the synchronicity
+counter.
 
-## Le masque « brûlable »
+## The "burnable" mask
 
-L'article restreint l'analyse aux *burnable wildland areas* : forêts, couvert mixte, bois,
-arbustes et prairies, à l'exclusion des cultures, des sols nus et des zones urbaines. Sans
-ce masque, le Sahara ou l'Arabie, où le FWI est structurellement énorme, domineraient la
-carte.
+The paper restricts the analysis to *burnable wildland areas*: forests, mixed cover,
+woodland, shrubland and grassland, excluding croplands, bare soil and urban areas. Without
+this mask, the Sahara or Arabia, where FWI is structurally enormous, would dominate the
+map.
 
-Source : classes dominantes de végétation GLDAS (Noah, « Modified IGBP », 20 classes).
-Correspondance retenue, configurable dans `config/pipeline.toml` :
+Source: GLDAS dominant vegetation classes (Noah, "Modified IGBP," 20 classes). The mapping
+used, configurable in `config/pipeline.toml`:
 
-| Code | Classe | Brûlable ? |
+| Code | Class | Burnable? |
 |---|---|---|
-| 1–5 | forêts (aiguilles/feuilles, persistantes/caduques, mixtes) | oui |
-| 6–7 | arbustes fermés / ouverts | oui |
-| 8–9 | savanes boisées / savanes | oui |
-| 10 | prairies | oui |
-| 11 | zones humides permanentes | non |
-| 12 | cultures | non |
-| 13 | urbain | non |
-| 14 | mosaïque cultures / végétation naturelle | **oui** (lu comme le « mixed cover » de l'article) |
-| 15 | neige et glace | non |
-| 16 | sols nus ou peu végétalisés | non |
-| 18–19 | toundra boisée / mixte | **oui** (végétalisée, feux de toundra documentés) |
-| 20 | toundra nue | non |
-| 0 | eau / manquant | non |
+| 1-5 | forests (needleleaf/broadleaf, evergreen/deciduous, mixed) | yes |
+| 6-7 | closed / open shrublands | yes |
+| 8-9 | woody savannas / savannas | yes |
+| 10 | grasslands | yes |
+| 11 | permanent wetlands | no |
+| 12 | croplands | no |
+| 13 | urban | no |
+| 14 | cropland / natural vegetation mosaic | **yes** (read as the paper's "mixed cover") |
+| 15 | snow and ice | no |
+| 16 | barren or sparsely vegetated | no |
+| 18-19 | wooded / mixed tundra | **yes** (vegetated, tundra fires are documented) |
+| 20 | bare tundra | no |
+| 0 | water / missing | no |
 
-Deux décisions restent des interprétations : la classe 14 et les toundras 18–19. Elles
-sont isolées dans la configuration pour être ajustées si les notebooks des auteurs,
-téléchargeables avec le jeton Dryad, tranchent autrement.
+Two calls remain interpretations: class 14 and the 18-19 tundra classes. They're isolated
+in the configuration so they can be adjusted if the authors' notebooks, downloadable with
+the Dryad token, settle it differently.
 
-### Passer d'une grille à cellules à une grille à nœuds
+### From a cell grid to a node grid
 
-GLDAS et GFED sont des grilles **à cellules** : centres à ±0,125°, ±0,375°… Chaque nœud
-ERA5 tombe donc exactement au coin de quatre cellules. Deux règles, dans `mask.py` :
+GLDAS and GFED are **cell** grids: centers at ±0.125°, ±0.375°... Every ERA5 node
+therefore falls exactly at the corner of four cells. Two rules, in `mask.py`:
 
-- **masque booléen** : vote des quatre voisines ; le nœud est brûlable si au moins la
-  moitié le sont (`vote_threshold = 0.5`). Une voisine hors de l'emprise (GLDAS s'arrête à
-  −60°, donc pas d'Antarctique ; la ligne 90° N n'a que deux voisines) compte comme
-  non brûlable : le résultat est conservateur ;
-- **identifiants de région** : la cellule nord-ouest, choix déterministe qui ne compte
-  que sur les frontières entre régions.
+- **boolean mask**: a vote among the four neighbors; the node is burnable if at least half
+  of them are (`vote_threshold = 0.5`). A neighbor outside the source's extent (GLDAS
+  stops at -60°, so no Antarctica; the 90°N row has only two neighbors) counts as
+  non-burnable: the result is conservative;
+- **region IDs**: the northwest cell, a deterministic choice that only matters at region
+  boundaries.
 
-Les deux règles gèrent le passage de la ligne de changement de date (−180 = 180).
+Both rules handle crossing the date line (-180 = 180).
 
-### Résultat
+### Result
 
-Sur la grille canonique : **185 301 nœuds brûlables**, soit **19,8 % de la surface
-terrestre pondérée** (les terres émergées représentent ~29 %). L'ordre de grandeur est
-cohérent avec une carte mondiale de végétation naturelle hors déserts, glaces et cultures.
+On the canonical grid: **185,301 burnable nodes**, or **19.8% of area-weighted land**
+(land itself covers ~29%). That order of magnitude is consistent with a world map of
+natural vegetation excluding deserts, ice and cropland.
 
-## Les régions GFED
+## GFED regions
 
-Les 14 régions de base de la Global Fire Emissions Database (BONA, TENA, CEAM, NHSA, SHSA,
-EURO, MIDE, NHAF, SHAF, BOAS, CEAS, SEAS, EQAS, AUST) sont lues dans
-`GFED4.1s_1997.hdf5` (`ancill/basis_regions`, avec les noms en attributs) puis projetées
-sur les nœuds. Elles servent au compteur de simultanéité : l'article définit un jour de
-*synchronous fire weather* intrarégional quand au moins 30 % de la surface brûlable d'une
-région dépasse son p90 le même jour.
+The Global Fire Emissions Database's 14 basis regions (BONA, TENA, CEAM, NHSA, SHSA, EURO,
+MIDE, NHAF, SHAF, BOAS, CEAS, SEAS, EQAS, AUST) are read from `GFED4.1s_1997.hdf5`
+(`ancill/basis_regions`, with names as attributes) then projected onto the nodes. They
+feed the synchronicity counter: the paper defines an intraregional day of *synchronous
+fire weather* as one where at least 30% of a region's burnable land exceeds its p90 on the
+same day.
 
 ## Sources
 
-- NASA GLDAS, *Vegetation class / mask* : <https://ldas.gsfc.nasa.gov/gldas/vegetation-class-mask>
+- NASA GLDAS, *Vegetation class / mask*: <https://ldas.gsfc.nasa.gov/gldas/vegetation-class-mask>
 - Rodell M. et al., *The Global Land Data Assimilation System*, BAMS 85, 2004,
   doi:[10.1175/BAMS-85-3-381](https://doi.org/10.1175/BAMS-85-3-381)
 - Giglio L. et al., *Analysis of daily, monthly, and annual burned area using the fourth
   generation GFED*, JGR Biogeosciences 118, 2013, doi:[10.1002/jgrg.20042](https://doi.org/10.1002/jgrg.20042)
-- ECMWF, *ERA5: data documentation*, grille et conventions :
+- ECMWF, *ERA5: data documentation*, grid and conventions:
   <https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation>

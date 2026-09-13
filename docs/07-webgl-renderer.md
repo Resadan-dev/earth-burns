@@ -1,108 +1,106 @@
-# 07 : Le rendu WebGL
+# 07: The WebGL renderer
 
-Application web sans dépendance ni étape de build : des modules ES natifs, un shader
-écrit à la main, et un petit serveur Python pour le développement. Un peu plus de 1 100
-lignes au total, dont 121 de GLSL.
+A dependency-free web app with no build step: native ES modules, a hand-written shader,
+and a small Python server for development. A little over 1,100 lines in total, 121 of
+them GLSL.
 
 ```
 web/index.html      structure
-web/styles.css      direction visuelle
-web/src/data.js     chargement et indexation du paquet
-web/src/shaders.js  GLSL, projection et rampes de couleur
-web/src/renderer.js WebGL2, textures, dessin
-web/src/main.js     horloge, modes, interactions
-scripts/serve_web.py serveur de développement
+web/styles.css      visual direction
+web/src/data.js     package loading and indexing
+web/src/shaders.js  GLSL, projection and color ramps
+web/src/renderer.js WebGL2, textures, drawing
+web/src/main.js     clock, modes, interactions
+scripts/serve_web.py development server
 ```
 
-Lancer : `.venv/Scripts/python.exe scripts/serve_web.py --port 8123`, puis ouvrir
+Run it: `.venv/Scripts/python.exe scripts/serve_web.py --port 8123`, then open
 <http://127.0.0.1:8123>.
 
-## Pourquoi aucune bibliothèque
+## Why no library
 
-Le besoin est étroit : une projection, une rampe, une interpolation entre deux images.
-Aucune bibliothèque cartographique ne fait exactement cela sans imposer son modèle de
-tuiles ou de couches, et toutes pèsent plus lourd que les 121 lignes de shader qui
-suffisent ici. La contrepartie assumée est qu'il faut écrire la projection soi-même.
+The need is narrow: a projection, a color ramp, an interpolation between two frames. No
+mapping library does exactly that without imposing its own tile or layer model, and all
+of them weigh more than the 121 lines of shader that suffice here. The accepted trade-off
+is writing the projection by hand.
 
-## Servir des blobs brotli sans décodeur
+## Serving brotli blobs with no decoder
 
-Les blobs sont compressés sur le disque. Le serveur les envoie avec l'en-tête
-`Content-Encoding: br`, si bien que le navigateur les décompresse lui-même et que
-`fetch` rend des octets bruts. Aucun décodeur en JavaScript, aucune copie de plus.
+The blobs are compressed on disk. The server sends them with the
+`Content-Encoding: br` header, so the browser decompresses them itself and `fetch`
+returns raw bytes. No JavaScript decoder, no extra copy.
 
-Le serveur est **multi-thread**. En mono-thread, les six requêtes parallèles du
-démarrage se mettaient en file et la page paraissait bloquée ; c'était le premier bug
-rencontré. Mesuré après correction : 238 ms pour le plus gros bloc, moins d'une seconde
-pour les 14 Mo du démarrage.
+The server is **multi-threaded**. Single-threaded, the six parallel requests at startup
+used to queue up and the page looked stuck; that was the first bug encountered. Measured
+after the fix: 238 ms for the largest block, under a second for the 14 MB loaded at
+startup.
 
-## Du tableau creux à la texture
+## From a sparse array to a texture
 
-Le paquet ne contient que les 185 301 cellules brûlables, pas le million de la grille.
-Chaque mois est donc dispersé une fois dans une grille pleine 1440 × 721 puis envoyé
-comme texture à un canal. La dispersion écrit **`jours + 1`**, ce qui laisse la valeur 0
-libre pour signifier « hors du masque ». C'est ce détail d'un octet qui permet de
-dessiner les continents sans embarquer une couche de terres séparée : le shader
-distingue la mer d'une terre au repos.
+The package holds only the 185,301 burnable cells, not the grid's full million. Each
+month is therefore scattered once into a full 1440 x 721 grid and sent as a single-channel
+texture. The scatter writes **`days + 1`**, which frees up the value 0 to mean "outside
+the mask." That one-byte detail is what lets the renderer draw continents without shipping
+a separate land layer: the shader tells a calm sea apart from calm land.
 
-Quatre textures sont maintenues, deux mondes fois deux mois. Le mélange entre le mois
-courant et le suivant se fait dans le shader, si bien qu'une seule dispersion par
-changement de mois suffit, soit une vingtaine par seconde et non soixante.
+Four textures are kept live, two worlds times two months. Blending between the current
+month and the next happens in the shader, so a single scatter per month change is enough,
+about twenty per second rather than sixty.
 
-## La projection
+## The projection
 
-Equal Earth, inversée par itération de Newton dans le fragment shader. Le choix n'est
-pas esthétique : la comparaison porte sur des **surfaces** de terres qui brûlent, et une
-projection non équivalente comme Mercator gonflerait précisément les forêts boréales dont
-parle une partie de l'histoire. Huit itérations suffisent largement à la précision d'un
-pixel.
+Equal Earth, inverted through Newton iteration in the fragment shader. The choice isn't
+aesthetic: the comparison is about **areas** of burning land, and a non-equal-area
+projection like Mercator would inflate exactly the boreal forests part of the story is
+about. Eight iterations are more than enough for pixel-level precision.
 
-Chaque pixel remonte à sa longitude et sa latitude, puis lit la texture. Les pixels hors
-du domaine prennent la couleur du fond, ce qui dessine la silhouette caractéristique de
-la projection sans géométrie.
+Every pixel maps back to a longitude and latitude, then reads the texture. Pixels outside
+the domain take the background color, which draws the projection's characteristic
+silhouette with no geometry at all.
 
-## Les trois lectures
+## The four views
 
-| Mode | Ce qu'il montre |
+| Mode | What it shows |
 |---|---|
-| Notre monde | le monde observé seul |
-| Sans réchauffement | le contrefactuel seul |
-| Côte à côte | deux planisphères **complets**, l'un au-dessus de l'autre |
-| La différence | observé moins contrefactuel, rampe divergente |
+| Our world | the observed world alone |
+| Without warming | the counterfactual alone |
+| Side by side | two **complete** world maps, one above the other |
+| The difference | observed minus counterfactual, diverging ramp |
 
-La vue côte à côte a d'abord été implémentée comme un balayage vertical au milieu de
-l'écran. C'était une erreur de conception : à gauche de la ligne on voyait les Amériques
-du monde observé et à droite l'Asie du contrefactuel, soit une comparaison entre deux
-lieux, pas entre deux mondes. Elle dessine désormais deux cartes entières.
+The side-by-side view was first implemented as a vertical wipe through the middle of the
+screen. That was a design mistake: to the left of the line you saw the Americas of the
+observed world, to the right, Asia from the counterfactual, i.e. a comparison between two
+places, not between two worlds. It now draws two complete maps.
 
-## Ce que l'interface refuse de faire
+## What the interface refuses to do
 
-Quand la décennie demandée n'est pas encore chargée, l'horloge s'arrête et un bandeau
-« loading this decade » apparaît. C'est délibéré : les compteurs viennent de la série
-d'étendue, chargée en entier au démarrage, alors que la carte dépend d'un bloc qui peut
-être en vol. Sans ce bandeau, une carte vide côtoyait des chiffres justes, ce qui se lit
-comme « il ne s'est rien passé » au lieu de « ce n'est pas encore arrivé ». Le bug a été
-trouvé en sautant à une décennie non chargée juste après le démarrage.
+When the requested decade hasn't loaded yet, the clock stops and a "loading this decade"
+banner appears. This is deliberate: the counters come from the extent series, loaded in
+full at startup, while the map depends on a chunk that may still be in flight. Without
+that banner, an empty map used to sit next to accurate numbers, which reads as "nothing
+happened" instead of "this hasn't arrived yet." The bug was found by jumping to an
+unloaded decade right after startup.
 
-L'animation ne saute jamais un mois qu'elle n'a pas pu dessiner : le temps n'avance que
-lorsque les textures correspondent au mois affiché.
+The animation never skips a month it couldn't draw: time only advances once the textures
+match the displayed month.
 
-## La dénominateur, encore
+## The denominator, again
 
-Le shader divise les jours par le nombre de jours **réellement observés** dans le mois,
-transmis par le paquet. Les années bissextiles des fichiers Dryad n'ont pas de
-31 décembre, si bien qu'un décembre sur quatre compte 30 jours. Sans cette division, ces
-mois paraîtraient 3 % plus calmes qu'ils ne le sont.
+The shader divides days by the number of days **actually observed** in the month, passed
+in by the package. Leap years in the Dryad files have no December 31st, so one December
+in four counts 30 days. Without that division, those months would look 3% calmer than
+they really are.
 
 ## Interactions
 
-- **Espace** joue et met en pause, les **flèches** avancent d'un mois.
-- **Molette** pour zoomer autour du curseur, **glisser** pour déplacer, **0** pour
-  revenir à la vue mondiale.
-- Le curseur temporel couvre les 552 mois, gradué par décennie.
+- **Space** plays and pauses, the **arrow keys** step by one month.
+- **Scroll wheel** zooms around the cursor, **drag** pans, **0** returns to the world
+  view.
+- The time scrubber covers all 552 months, with decade tick marks.
 
 ## Sources
 
 - Šavrič B., Patterson T., Jenny B. (2018), *The Equal Earth map projection*,
   International Journal of Geographical Information Science,
   doi:[10.1080/13658816.2018.1504949](https://doi.org/10.1080/13658816.2018.1504949)
-- Formules directes et inverse : <https://equal-earth.com>
+- Forward and inverse formulas: <https://equal-earth.com>

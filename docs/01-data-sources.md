@@ -1,148 +1,148 @@
-# 01 : Sources de données et accès
+# 01: Data sources and access
 
-## Tableau récapitulatif
+## Summary table
 
-| Donnée | Rôle | Accès | Licence | Taille |
+| Data | Role | Access | License | Size |
 |---|---|---|---|---|
-| FWI observé + contrefactuel 1979–2024, 0,25°, quotidien | cœur du projet | Dryad, **jeton API requis** | CC0 | 92 fichiers, 9,92 Go |
-| FWI GEFF-ERA5 1979–2018 (Vitolo et al. 2019) | banc d'essai public, même grille | Zenodo, libre | CC BY 4.0 | ~440 Mo / an |
-| GLDAS classes de végétation 0,25° (Noah, IGBP modifié) | masque « brûlable » | NASA LDAS, libre | domaine public | 125 Ko |
-| Régions GFED (14 régions, dans GFED4.1s_1997.hdf5) | découpage régional, compteur de simultanéité | VU Amsterdam, libre | CC BY 4.0 | 47 Mo |
-| Surface brûlée GFED5 (plus tard) | overlay « feux réels » | Zenodo 7668424 | CC BY 4.0 | 265 Mo |
+| Observed + counterfactual FWI 1979-2024, 0.25°, daily | core of the project | Dryad, **API token required** | CC0 | 92 files, 9.92 GB |
+| FWI GEFF-ERA5 1979-2018 (Vitolo et al. 2019) | public test bench, same grid | Zenodo, open | CC BY 4.0 | ~440 MB/year |
+| GLDAS vegetation classes 0.25° (Noah, modified IGBP) | "burnable" mask | NASA LDAS, open | public domain | 125 KB |
+| GFED regions (14 regions, in GFED4.1s_1997.hdf5) | regional split, synchronicity counter | VU Amsterdam, open | CC BY 4.0 | 47 MB |
+| GFED5 burned area (later) | "real fires" overlay | Zenodo 7668424 | CC BY 4.0 | 265 MB |
 
-## Dryad : pourquoi il faut un jeton, et comment l'obtenir
+## Dryad: why a token is needed, and how to get one
 
-Le dépôt Dryad protège ses liens de téléchargement par un test anti-robot en JavaScript et
-son API refuse tout téléchargement sans jeton (`401 Unauthorized, must have current bearer
-token`, constaté le 2026-09-07). Le pipeline n'essaie pas de contourner cette protection :
-il passe par l'API officielle.
+The Dryad repository protects its download links with a JavaScript anti-bot challenge, and
+its API refuses any download without a token (`401 Unauthorized, must have current bearer
+token`, observed on 2026-09-07). The pipeline doesn't try to work around this protection:
+it goes through the official API.
 
-Procédure, d'après la [documentation Dryad](https://github.com/datadryad/dryad-app/blob/main/documentation/apis/api_accounts.md) :
+Procedure, per the [Dryad documentation](https://github.com/datadryad/dryad-app/blob/main/documentation/apis/api_accounts.md):
 
-1. Créer un compte Dryad via ORCID sur <https://datadryad.org> et s'y connecter une fois.
-2. Sur la page *My account* (<https://datadryad.org/account>), créer une **application API** :
-   on obtient un `client_id` et un `client_secret`.
-3. Exporter ces identifiants dans l'environnement (jamais dans le dépôt) :
+1. Create a Dryad account via ORCID at <https://datadryad.org> and sign in once.
+2. On the *My account* page (<https://datadryad.org/account>), create an **API
+   application**: this gives you a `client_id` and a `client_secret`.
+3. Export these credentials into the environment (never into the repository):
 
    ```bash
    export DRYAD_CLIENT_ID=...
    export DRYAD_CLIENT_SECRET=...
    ```
 
-   Le pipeline demande lui-même un jeton (valable 10 h) à `POST /oauth/token`.
-   On peut aussi fournir directement `DRYAD_TOKEN`.
-4. Lancer le téléchargement, qui reprend là où il s'est arrêté et vérifie chaque SHA-256 :
+   The pipeline requests its own token (valid 10 hours) from `POST /oauth/token`.
+   You can also supply `DRYAD_TOKEN` directly.
+4. Run the download, which resumes where it left off and verifies every SHA-256:
 
    ```bash
    .venv/Scripts/earthburns dryad download
    ```
 
-   L'ordre est choisi pour démarrer la passe 1 au plus tôt : petits fichiers (README,
-   notebooks), puis années de référence 1991–2020 du monde observé, puis le contrefactuel,
-   puis le reste.
+   The order is chosen to start pass 1 as early as possible: small files first (README,
+   notebooks), then the 1991-2020 reference years of the observed world, then the
+   counterfactual, then the rest.
 
-Alternative sans script : télécharger l'archive complète depuis la page du dataset dans un
-navigateur, puis déposer les `.nc` dans `data/raw/dryad/`. La commande
-`earthburns dryad status --verify` confirme l'intégrité de chaque fichier grâce aux
-empreintes SHA-256 publiées dans le manifeste de l'API.
+Script-free alternative: download the full archive from the dataset page in a browser,
+then drop the `.nc` files into `data/raw/dryad/`. The `earthburns dryad status --verify`
+command confirms the integrity of each file against the SHA-256 hashes published in the
+API manifest.
 
-Le manifeste (`/api/v2/versions/435817/files`) reste public : c'est lui qui donne tailles,
-empreintes et identifiants. Version 8 du dataset, mise à jour du 2026-04-09 : c'est celle
-qui contient l'année 2009, absente des versions précédentes.
+The manifest (`/api/v2/versions/435817/files`) stays public: it's what provides sizes,
+hashes and IDs. Dataset version 8, updated 2026-04-09: this is the version that includes
+2009, which earlier versions were missing.
 
-## Ce que contiennent réellement les fichiers Dryad
+## What the Dryad files actually contain
 
-Téléchargés et vérifiés le 2026-09-08 : 92 NetCDF, 9,3 Go, 101 empreintes SHA-256 toutes
-conformes. Leur structure réserve trois surprises, toutes traitées par le lecteur.
+Downloaded and verified on 2026-09-08: 92 NetCDF files, 9.3 GB, 101 SHA-256 hashes all
+matching. Their structure holds three surprises, all handled by the reader.
 
-| Élément | Valeur |
+| Item | Value |
 |---|---|
-| Variable | `fwi`, float32, attribut « FWI from daily summary, overwintering on » |
-| Grille | 721 × 1440 nœuds, latitude 90 → −90, longitude **0 → 359,75** |
-| Valeur manquante | `_FillValue = −9999`, décodée par xarray : l'océan arrive en NaN |
-| Part manquante | 73 % de la grille, ce qui correspond aux mers |
-| Découpage interne | blocs de 73 jours × 145 × 288, gzip niveau 9 |
-| Axe temporel | **pas de coordonnée**, une variable `days` à part |
+| Variable | `fwi`, float32, attribute "FWI from daily summary, overwintering on" |
+| Grid | 721 x 1440 nodes, latitude 90 -> -90, longitude **0 -> 359.75** |
+| Missing value | `_FillValue = -9999`, decoded by xarray: the ocean arrives as NaN |
+| Missing share | 73% of the grid, matching the seas |
+| Internal chunking | 73-day x 145 x 288 blocks, gzip level 9 |
+| Time axis | **no coordinate**, a separate `days` variable |
 
-**Première surprise, le temps.** La dimension `time` n'a aucune coordonnée. Les dates
-vivent dans une variable `days` dont l'unité est écrite `days_since_Jan11900`, une forme
-qu'aucun décodeur CF ne reconnaît : xarray refuse même d'ouvrir le fichier. Le lecteur
-ouvre donc en repli sans décodage temporel, puis interprète lui-même l'origine. C'est
-exactement ce que font les auteurs dans leur notebook, avec `decode_times=False`.
+**First surprise, time.** The `time` dimension has no coordinate. Dates live in a `days`
+variable whose unit is written `days_since_Jan11900`, a form no CF decoder recognizes:
+xarray refuses to even open the file. The reader therefore opens with a fallback that
+skips time decoding, then interprets the origin itself. This is exactly what the authors
+do in their own notebook, with `decode_times=False`.
 
-**Deuxième surprise, les années bissextiles.** Chaque fichier contient exactement 365 pas
-de temps, y compris pour 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020 et 2024. Les jours
-sont contigus à partir du 1er janvier, donc le 29 février est bien présent : c'est le
-**31 décembre qui manque**, douze fois sur la période 1979–2024. Le pipeline l'accepte, le
-signale, et enregistre le nombre de jours réellement observés par mois pour que les
-comptages restent lisibles. Un trou entre deux jours lus, lui, reste une erreur.
+**Second surprise, leap years.** Every file holds exactly 365 time steps, including for
+1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020 and 2024. The days are contiguous starting
+January 1st, so February 29th is indeed present: it's **December 31st that's missing**,
+twelve times over 1979-2024. The pipeline accepts this, reports it, and records the number
+of days actually observed per month so counts stay legible. A gap between two days that
+were read, though, is still an error.
 
-**Troisième surprise, le découpage.** Les blocs de 73 jours veulent être lus d'un coup :
-en lisant par 32 jours, chaque bloc compressé est décompressé deux fois. Le lecteur
-s'aligne désormais sur le découpage déclaré par le fichier, ce qui divise par deux le temps
-de lecture, mesuré à 3,9 s au lieu de 7,7 s pour 146 jours.
+**Third surprise, chunking.** The 73-day blocks want to be read in one go: reading in
+32-day strides decompresses each block twice. The reader now aligns itself on the chunk
+size declared by the file, which halves read time, measured at 3.9 s instead of 7.7 s for
+146 days.
 
-## Ce que les notebooks des auteurs confirment
+## What the authors' notebooks confirm
 
-Le dépôt contient leurs sept notebooks. Ils tranchent des choix que j'avais dû interpréter :
+The repository includes their seven notebooks. They settle choices I'd had to interpret:
 
-- **Le seuil** : `threshold_1 = 90`, calculé par `ds_fwi.quantile(0.90, dim='time')` sur
-  `range(1991, 2021)`. Période et méthode identiques aux miennes, la méthode par défaut de
-  `quantile` étant l'interpolation linéaire, celle que mon estimateur par histogramme
-  approche à la largeur de classe près.
-- **La pondération** : ils calculent l'aire réelle de chaque cellule,
-  `R² × cos(latitude) × Δlat × Δlon`. À pas constant, c'est proportionnel à cos(latitude),
-  donc identique à ma pondération dès lors qu'on en fait un rapport.
-- **La simultanéité** : « days of extreme FWI over 30 % area in each GFED region », ce qui
-  confirme le seuil de 30 % et le découpage GFED.
-- **Le masque** : ils appliquent `xr.where(vegetated.notnull(), fwi, nan)` à partir d'un
-  fichier `vegetated_area.nc` dérivé de `GLDAS_domveg`. Ce fichier n'est **pas publié**,
-  seulement le code qui le consomme. Ma liste de classes reste donc une reconstruction,
-  documentée en D4, et non une copie de la leur.
+- **The threshold**: `threshold_1 = 90`, computed with `ds_fwi.quantile(0.90, dim='time')`
+  over `range(1991, 2021)`. Same period and method as mine, `quantile`'s default method
+  being linear interpolation, which my histogram-based estimator approximates to within
+  bin width.
+- **The weighting**: they compute each cell's actual area,
+  `R² × cos(latitude) × Δlat × Δlon`. At a constant step, that's proportional to
+  cos(latitude), so identical to my weighting once you take a ratio of the two.
+- **Synchronicity**: "days of extreme FWI over 30% area in each GFED region," which
+  confirms the 30% threshold and the GFED split.
+- **The mask**: they apply `xr.where(vegetated.notnull(), fwi, nan)` from a
+  `vegetated_area.nc` file derived from `GLDAS_domveg`. That file is **not published**,
+  only the code that consumes it. My own class list therefore remains a reconstruction,
+  documented in D4, not a copy of theirs.
 
-## GEFF-ERA5 (Zenodo) : le banc d'essai
+## GEFF-ERA5 (Zenodo): the test bench
 
-Vitolo C. et al., *A 1980–2018 global fire danger re-analysis dataset for the Canadian Fire
+Vitolo C. et al., *A 1980-2018 global fire danger re-analysis dataset for the Canadian Fire
 Weather Indices*, Scientific Data 6, 2019, doi:[10.1038/sdata.2019.32](https://doi.org/10.1038/sdata.2019.32).
-Record Zenodo [3540938](https://zenodo.org/records/3540938), un fichier par an.
+Zenodo record [3540938](https://zenodo.org/records/3540938), one file per year.
 
-Même grille ERA5 que Dryad, mais trois différences à connaître :
+Same ERA5 grid as Dryad, but three differences worth knowing:
 
-- dimensions nommées `Time` / `Latitude` / `Longitude`, longitude de 0 à 359,75 ;
-- le temps est un **numéro de jour** (1…365), pas une date : le lecteur reconstruit les
-  dates à partir de l'année contenue dans le nom du fichier ;
-- l'océan est codé **−3,4 × 10³⁸**, mais **avec** un attribut `_FillValue` que xarray
-  décode : à travers `open_fwi_year`, un bloc de quatre jours contient déjà 3 658 308 NaN
-  et zéro valeur négative. Le lecteur conserve néanmoins une règle « valeur négative =
-  manquante », non pas comme substitut au décodage, mais comme garde-fou pour une source
-  future dont l'attribut serait absent. Une version antérieure de ce document affirmait
-  l'inverse ; c'était faux, et la décision D6 a été corrigée en conséquence.
+- dimensions named `Time` / `Latitude` / `Longitude`, longitude from 0 to 359.75;
+- time is a **day number** (1...365), not a date: the reader rebuilds dates from the year
+  in the file name;
+- the ocean is coded as **-3.4 x 10³⁸**, but **with** a `_FillValue` attribute that xarray
+  decodes: through `open_fwi_year`, a four-day block already holds 3,658,308 NaN and zero
+  negative values. The reader nonetheless keeps a "negative value = missing" rule, not as
+  a substitute for decoding, but as a safeguard for a future source whose attribute might
+  be absent. An earlier version of this document claimed the opposite; that was wrong, and
+  decision D6 was corrected accordingly.
 
-Ce jeu ne contient pas d'hivernage du code de sécheresse (« no overwintering »), à la
-différence de Dryad : les valeurs de printemps en climat froid diffèrent un peu. Il sert
-uniquement à valider la mécanique du pipeline sur des données réelles.
+This dataset has no overwintering of the drought code, unlike Dryad: cold-climate spring
+values differ slightly as a result. It's used only to validate the pipeline's mechanics on
+real data.
 
-## GLDAS : classes de végétation
+## GLDAS: vegetation classes
 
-NASA GLDAS, *Vegetation class / mask*, fichier `GLDASp5_domveg_NOAH3.6_025d.nc4`
-(<https://ldas.gsfc.nasa.gov/gldas/vegetation-class-mask>). Grille de 600 × 1440 cellules,
-centres à ±0,125°, de −59,875° à 89,875° (pas d'Antarctique). Classification « Modified
-IGBP » à 20 classes, les codes sont listés dans `earthburns/mask.py`.
+NASA GLDAS, *Vegetation class / mask*, file `GLDASp5_domveg_NOAH3.6_025d.nc4`
+(<https://ldas.gsfc.nasa.gov/gldas/vegetation-class-mask>). A 600 x 1440 cell grid,
+centers at ±0.125°, from -59.875° to 89.875° (no Antarctica). "Modified IGBP"
+classification with 20 classes; the codes are listed in `earthburns/mask.py`.
 
-C'est la carte utilisée par l'article pour définir les « burnable wildland areas ».
+This is the map the paper uses to define "burnable wildland areas."
 
-## GFED : régions
+## GFED: regions
 
-Les 14 régions de base de GFED (BONA, TENA, CEAM, NHSA, SHSA, EURO, MIDE, NHAF, SHAF, BOAS,
-CEAS, SEAS, EQAS, AUST) sont stockées dans chaque fichier annuel GFED4.1s sous
-`ancill/basis_regions`, grille 720 × 1440 à centres ±0,125°. Nous utilisons le fichier
-1997 (le plus petit, 47 Mo) : <https://www.geo.vu.nl/~gwerf/GFED/GFED4/>.
-Référence : van der Werf G. R. et al., *Global fire emissions estimates during 1997–2016*,
+GFED's 14 basis regions (BONA, TENA, CEAM, NHSA, SHSA, EURO, MIDE, NHAF, SHAF, BOAS, CEAS,
+SEAS, EQAS, AUST) are stored in every annual GFED4.1s file under `ancill/basis_regions`, a
+720 x 1440 grid with centers at ±0.125°. We use the 1997 file (the smallest, 47 MB):
+<https://www.geo.vu.nl/~gwerf/GFED/GFED4/>.
+Reference: van der Werf G. R. et al., *Global fire emissions estimates during 1997-2016*,
 Earth System Science Data 9, 2017, doi:[10.5194/essd-9-697-2017](https://doi.org/10.5194/essd-9-697-2017).
 
-## Ce que le pipeline vérifie à l'entrée
+## What the pipeline checks on input
 
-- la grille est bien 721 × 1440 au pas de 0,25°, sinon erreur ;
-- la variable FWI est identifiée par son nom ou comme unique variable 3-D ;
-- l'axe temporel est converti en dates, et une année incomplète est refusée par défaut ;
-- chaque fichier Dryad est comparé à son SHA-256 avant usage.
+- the grid is indeed 721 x 1440 at 0.25° spacing, otherwise it errors out;
+- the FWI variable is identified by name or as the sole 3-D variable;
+- the time axis is converted to dates, and an incomplete year is refused by default;
+- every Dryad file is checked against its SHA-256 before use.
