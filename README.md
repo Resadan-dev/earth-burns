@@ -107,3 +107,9 @@ en météo extrême passe de 7,70 % sur 1979–1990 à 11,97 % sur 2014–2024, 
   doi:10.5061/dryad.cfxpnvxkp (CC0).
 - Vitolo C. et al. (2019), GEFF-ERA5, Scientific Data, doi:10.1038/sdata.2019.32 ; Zenodo 3540938.
 - NASA GLDAS vegetation class mask ; GFED4.1s basis regions (van der Werf et al. 2017).
+
+## Licence
+
+Code sous licence [MIT](LICENSE). Les données Dryad utilisées sont CC0 ; voir
+[docs/01-data-sources.md](docs/01-data-sources.md) pour le détail des sources et leurs
+licences respectives.
