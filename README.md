@@ -1,40 +1,40 @@
-# Earth Burns : pipeline de données
+# Earth Burns: data pipeline
 
-**[Voir la carte en direct →](https://earth-burns.pages.dev)**
+**[See the live map →](https://earth-burns.pages.dev)**
 
-Depuis 1979, la météo extrême propice aux incendies a plus que doublé dans la majorité du
-monde, et plus de la moitié de cette hausse est due au réchauffement climatique d'origine
-humaine. Ce dépôt contient le pipeline qui transforme 46 ans de données scientifiques
-publiques (Yin, Abatzoglou, Jones et al., *Science Advances*, 2026) en une carte interactive
-qui compare, mois par mois, notre monde réel à un monde sans ce réchauffement.
+Since 1979, extreme fire weather has more than doubled across most of the world, and more
+than half of that increase is due to human-caused climate change. This repository holds the
+pipeline that turns 46 years of public scientific data (Yin, Abatzoglou, Jones et al.,
+*Science Advances*, 2026) into an interactive map comparing, month by month, the world we
+actually got to a world without that warming.
 
-La documentation pédagogique est dans [`docs/`](docs/00-overview.md) ; le journal des
-décisions dans [`docs/decisions.md`](docs/decisions.md).
+The step-by-step documentation lives in [`docs/`](docs/00-overview.md); the decision log is
+in [`docs/decisions.md`](docs/decisions.md).
 
 ## Installation
 
 ```bash
 uv venv --python 3.12
 uv pip install -e ".[dev]"
-.venv/Scripts/python.exe -m pytest -q      # 90 tests, 94 % de couverture
+.venv/Scripts/python.exe -m pytest -q      # 90 tests, 94% coverage
 ```
 
-## Données d'entrée
+## Input data
 
-| Donnée | Où | État |
+| Data | Where | State |
 |---|---|---|
-| FWI observé + contrefactuel (Dryad, 9,3 Go) | `data/raw/dryad/` | téléchargé, 101 empreintes vérifiées |
-| GLDAS classes de végétation | `data/raw/gldas/` | téléchargé |
-| Régions GFED (`GFED4.1s_1997.hdf5`) | `data/raw/gfed/` | téléchargé |
-| GEFF-ERA5 1991 et 2018 (banc d'essai) | `data/raw/zenodo_geff/` | téléchargé |
+| Observed + counterfactual FWI (Dryad, 9.3 GB) | `data/raw/dryad/` | downloaded, 101 checksums verified |
+| GLDAS vegetation classes | `data/raw/gldas/` | downloaded |
+| GFED regions (`GFED4.1s_1997.hdf5`) | `data/raw/gfed/` | downloaded |
+| GEFF-ERA5 1991 and 2018 (test bench) | `data/raw/zenodo_geff/` | downloaded |
 
-## Exécution
+## Running it
 
 ```bash
 PY=.venv/Scripts/python.exe
 THR=data/interim/thresholds_dryad_1991-2020.nc
-$PY -m earthburns.cli mask                       # masques → data/interim/masks.nc
-$PY -m earthburns.cli dryad download             # nécessite DRYAD_CLIENT_ID/SECRET
+$PY -m earthburns.cli mask                       # masks → data/interim/masks.nc
+$PY -m earthburns.cli dryad download             # needs DRYAD_CLIENT_ID/SECRET
 $PY -m earthburns.cli thresholds --source dryad --allow-incomplete
 $PY -m earthburns.cli monthly --world observed --thresholds $THR --allow-incomplete
 $PY -m earthburns.cli monthly --world counterfactual --thresholds $THR --allow-incomplete
@@ -42,74 +42,74 @@ $PY -m earthburns.cli pack --world observed
 $PY -m earthburns.cli pack --world counterfactual
 ```
 
-`--allow-incomplete` est requis ici pour une raison précise, pas par confort : les fichiers
-Dryad contiennent 365 pas de temps quelle que soit l'année, si bien que les douze années
-bissextiles de la série n'ont pas de 31 décembre. Un jour manquant **entre** deux jours lus
-reste refusé dans tous les cas.
+`--allow-incomplete` is required here for a specific reason, not for convenience: Dryad
+files hold 365 time steps regardless of the year, so the twelve leap years in the series are
+missing December 31st. A day missing **between** two days that were read is still refused,
+in every case.
 
-Banc d'essai sans jeton, sur les années GEFF présentes :
+Token-free test bench, on the GEFF years actually present:
 
 ```bash
 $PY -m earthburns.cli thresholds --source zenodo --years 1991
 $PY -m earthburns.cli monthly --source zenodo --years 2018 --thresholds data/interim/thresholds_zenodo_1991-1991.nc
 $PY -m earthburns.cli pack --source zenodo
-$PY scripts/plot_diagnostics.py                  # cartes de contrôle → data/processed/
+$PY scripts/plot_diagnostics.py                  # control maps → data/processed/
 ```
 
-Temps mesurés sur la série complète, poste à 16 cœurs logiques : 12 minutes pour la passe 1
-sur les 30 années de référence, 16 minutes pour les deux passes 2 lancées en parallèle sur
-46 ans, 4 minutes pour l'empaquetage. Environ **35 minutes** au total après téléchargement.
+Timings on the full run, 16 logical cores: 12 minutes for pass 1 over the 30-year reference
+period, 16 minutes for the two pass 2 runs launched in parallel over 46 years, 4 minutes for
+packing. About **35 minutes** total after download.
 
-## Sorties
+## Outputs
 
 ```
-web/                                               l'application, modules ES sans build
-data/interim/masks.nc                              masque brûlable, régions GFED, poids cos(lat)
-data/interim/thresholds_<src>_<y0>-<y1>.nc         seuils p90/p95/p99 + couverture + validation
-data/interim/monthly/<src>_<monde>_<an>.nc         jours extrêmes par mois (uint8)
-data/interim/monthly/<src>_<monde>_<an>_extent.parquet  fractions et couverture quotidiennes
-data/web/<src>/                                    blobs brotli + manifest.json pour le client
+web/                                               the app, ES modules, no build step
+data/interim/masks.nc                              burnable mask, GFED regions, cos(lat) weights
+data/interim/thresholds_<src>_<y0>-<y1>.nc         p90/p95/p99 thresholds + coverage + validation
+data/interim/monthly/<src>_<world>_<year>.nc       extreme days per month (uint8)
+data/interim/monthly/<src>_<world>_<year>_extent.parquet  daily fractions and coverage
+data/web/<src>/                                    brotli blobs + manifest.json for the client
 ```
 
-Les noms sont décidés dans un seul module, [`earthburns/layout.py`](earthburns/layout.py) :
-relancer une année écrase exactement ce qu'elle remplace.
+Names are decided in a single module, [`earthburns/layout.py`](earthburns/layout.py):
+rerunning a year overwrites exactly what it replaces.
 
-## Ce que le pipeline refuse
+## What the pipeline refuses to do
 
-Il échoue plutôt que de produire une sortie plausible mais fausse : période de référence
-incomplète ou jour dupliqué en passe 1, variable qui n'est pas du FWI, grille source à la
-mauvaise résolution, année ou jour manquant à l'empaquetage, masque modifié sous des blobs
-déjà écrits. Chacun de ces cas a d'abord été un bug silencieux, corrigé et documenté dans
+It fails rather than produce a plausible but wrong output: an incomplete reference period or
+a duplicate day in pass 1, a variable that isn't FWI, a source grid at the wrong resolution,
+a missing year or day at packing time, a mask changed underneath blobs already written. Each
+of these cases was first a silent bug, fixed and documented in
 [docs/decisions.md](docs/decisions.md).
 
-## La visualisation
+## The visualization
 
 ```bash
 .venv/Scripts/python.exe scripts/serve_web.py --port 8123
 ```
 
-Puis <http://127.0.0.1:8123>. Quatre lectures : notre monde, le monde sans réchauffement
-anthropique, les deux côte à côte, et leur différence. Espace pour jouer, molette pour
-zoomer, 0 pour revenir au monde entier. Détails d'implémentation dans
+Then <http://127.0.0.1:8123>. Four views: our world, the world without human-caused warming,
+both side by side, and their difference. Space to play, scroll wheel to zoom, 0 to return to
+the full world. Implementation details in
 [docs/07-webgl-renderer.md](docs/07-webgl-renderer.md).
 
-## Résultats
+## Results
 
-La série complète est calculée. Les chiffres, les contrôles et leurs limites sont dans
-[docs/06-first-results.md](docs/06-first-results.md). En résumé, la part de surface brûlable
-en météo extrême passe de 7,70 % sur 1979–1990 à 11,97 % sur 2014–2024, contre 7,13 % et
-9,51 % dans un monde sans réchauffement anthropique.
+The full series has been computed. The numbers, the checks and their limits are in
+[docs/06-first-results.md](docs/06-first-results.md). In short, the share of burnable land in
+extreme fire weather rises from 7.70% over 1979-1990 to 11.97% over 2014-2024, against 7.13%
+and 9.51% in a world without human-caused warming.
 
-## Références principales
+## Key references
 
 - Yin C., Abatzoglou J. T., Jones M. W. et al. (2026), *Increasing synchronicity of global
-  extreme fire weather*, Science Advances, doi:10.1126/sciadv.adx8813 ; données Dryad
+  extreme fire weather*, Science Advances, doi:10.1126/sciadv.adx8813; Dryad data
   doi:10.5061/dryad.cfxpnvxkp (CC0).
-- Vitolo C. et al. (2019), GEFF-ERA5, Scientific Data, doi:10.1038/sdata.2019.32 ; Zenodo 3540938.
-- NASA GLDAS vegetation class mask ; GFED4.1s basis regions (van der Werf et al. 2017).
+- Vitolo C. et al. (2019), GEFF-ERA5, Scientific Data, doi:10.1038/sdata.2019.32; Zenodo 3540938.
+- NASA GLDAS vegetation class mask; GFED4.1s basis regions (van der Werf et al. 2017).
 
-## Licence
+## License
 
-Code sous licence [MIT](LICENSE). Les données Dryad utilisées sont CC0 ; voir
-[docs/01-data-sources.md](docs/01-data-sources.md) pour le détail des sources et leurs
-licences respectives.
+Code under the [MIT](LICENSE) license. The Dryad data used is CC0; see
+[docs/01-data-sources.md](docs/01-data-sources.md) for the full list of sources and their
+respective licenses.
