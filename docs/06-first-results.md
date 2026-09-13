@@ -1,4 +1,4 @@
-# 06 — Premiers résultats sur la série complète
+# 06 : Premiers résultats sur la série complète
 
 Calculé le 2026-09-08 sur les 92 fichiers Dryad, 1979–2024, seuils locaux p90 issus de la
 période 1991–2020 du monde observé et appliqués aux deux mondes.

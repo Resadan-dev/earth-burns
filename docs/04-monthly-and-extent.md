@@ -1,4 +1,4 @@
-# 04 — Passe 2 : comptage mensuel et étendue quotidienne
+# 04 : Passe 2, comptage mensuel et étendue quotidienne
 
 ## Ce que la passe produit
 

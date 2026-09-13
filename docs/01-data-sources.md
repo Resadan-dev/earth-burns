@@ -1,4 +1,4 @@
-# 01 — Sources de données et accès
+# 01 : Sources de données et accès
 
 ## Tableau récapitulatif
 

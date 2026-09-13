@@ -1,4 +1,4 @@
-# 00 — Vue d'ensemble du pipeline
+# 00 : Vue d'ensemble du pipeline
 
 > Objectif : produire, à partir de ~10 Go de NetCDF quotidiens, quelques dizaines de Mo
 > que le navigateur peut animer, sans trahir la science derrière.
@@ -38,13 +38,13 @@ flowchart LR
   C --> E[Séries quotidiennes<br/>% surface brûlable en extrême]
 ```
 
-1. **Passe 1 — seuils** (`earthburns thresholds`) : un histogramme à classes fixes par
+1. **Passe 1 : seuils** (`earthburns thresholds`) : un histogramme à classes fixes par
    cellule, alimenté jour après jour, dont on déduit les percentiles avec une erreur bornée
    par la largeur des classes. Détail : [03-thresholds.md](03-thresholds.md).
 2. **Masques** (`earthburns mask`) : quelles cellules sont « brûlables » (forêts, savanes,
    arbustes, prairies…) et à quelle région GFED elles appartiennent.
    Détail : [02-grid-and-masks.md](02-grid-and-masks.md).
-3. **Passe 2 — comptage** (`earthburns monthly`) : pour chaque mois, chaque cellule et
+3. **Passe 2 : comptage** (`earthburns monthly`) : pour chaque mois, chaque cellule et
    chaque seuil, le nombre de jours au-dessus du seuil (un octet), plus, pour chaque jour,
    la fraction de surface brûlable en météo extrême, globale et par région.
    Détail : [04-monthly-and-extent.md](04-monthly-and-extent.md).

@@ -1,8 +1,12 @@
-# Earth Burns — pipeline de données
+# Earth Burns : pipeline de données
 
-Préparation des données de la dataviz **Earth Burns** : 46 ans (1979–2024) de météo
-propice aux incendies, monde observé contre monde sans réchauffement anthropique, réduits
-à quelques dizaines de mégaoctets animables dans un navigateur.
+**[Voir la carte en direct →](https://earth-burns.pages.dev)**
+
+Depuis 1979, la météo extrême propice aux incendies a plus que doublé dans la majorité du
+monde, et plus de la moitié de cette hausse est due au réchauffement climatique d'origine
+humaine. Ce dépôt contient le pipeline qui transforme 46 ans de données scientifiques
+publiques (Yin, Abatzoglou, Jones et al., *Science Advances*, 2026) en une carte interactive
+qui compare, mois par mois, notre monde réel à un monde sans ce réchauffement.
 
 La documentation pédagogique est dans [`docs/`](docs/00-overview.md) ; le journal des
 décisions dans [`docs/decisions.md`](docs/decisions.md).

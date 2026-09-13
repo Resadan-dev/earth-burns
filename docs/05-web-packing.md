@@ -1,4 +1,4 @@
-# 05 — Empaquetage pour le navigateur
+# 05 : Empaquetage pour le navigateur
 
 ## Budget
 

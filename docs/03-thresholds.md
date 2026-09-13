@@ -1,4 +1,4 @@
-# 03 — Passe 1 : les seuils locaux (p90, p95, p99)
+# 03 : Passe 1, les seuils locaux (p90, p95, p99)
 
 ## Pourquoi un seuil par cellule, et pas un seuil mondial
 

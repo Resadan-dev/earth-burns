@@ -1,4 +1,4 @@
-# 02 — Grille, poids de surface et masques
+# 02 : Grille, poids de surface et masques
 
 ## La grille canonique
 

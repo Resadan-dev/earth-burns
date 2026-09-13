@@ -1,4 +1,4 @@
-# 07 — Le rendu WebGL
+# 07 : Le rendu WebGL
 
 Application web sans dépendance ni étape de build : des modules ES natifs, un shader
 écrit à la main, et un petit serveur Python pour le développement. Un peu plus de 1 100
